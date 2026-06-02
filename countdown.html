@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Geri Sayım</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Courier+Prime:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1a1209;
+    --gold: #c9a84c;
+    --cream: #f5efe3;
+    --amber: #8b5e1a;
+    --shadow: rgba(139, 94, 26, 0.15);
+  }
+
+  body {
+    min-height: 100vh;
+    background: var(--cream);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Cormorant Garamond', serif;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.6;
+  }
+
+  /* Decorative corner lines */
+  .corner {
+    position: fixed;
+    width: 80px;
+    height: 80px;
+    opacity: 0.35;
+  }
+  .corner svg { width: 100%; height: 100%; }
+  .corner--tl { top: 24px; left: 24px; }
+  .corner--tr { top: 24px; right: 24px; transform: scaleX(-1); }
+  .corner--bl { bottom: 24px; left: 24px; transform: scaleY(-1); }
+  .corner--br { bottom: 24px; right: 24px; transform: scale(-1); }
+
+  .wrap {
+    text-align: center;
+    position: relative;
+    z-index: 1;
+    animation: fadeIn 1.8s ease forwards;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .label-top {
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin-bottom: 32px;
+    opacity: 0.7;
+  }
+
+  .ornament {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 48px;
+    color: var(--gold);
+  }
+  .ornament-line {
+    width: 60px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+  .ornament-diamond {
+    width: 7px;
+    height: 7px;
+    border: 1.5px solid var(--gold);
+    transform: rotate(45deg);
+    animation: pulse 3s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: rotate(45deg) scale(1); }
+    50%       { opacity: 0.4; transform: rotate(45deg) scale(0.8); }
+  }
+
+  .units {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    justify-content: center;
+  }
+
+  .unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    padding: 0 28px;
+  }
+
+  .unit + .unit::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 28px;
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, var(--gold) 30%, var(--gold) 70%, transparent);
+    opacity: 0.3;
+  }
+
+  .num {
+    font-size: clamp(64px, 10vw, 110px);
+    font-weight: 300;
+    color: var(--ink);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    position: relative;
+    transition: color 0.2s;
+  }
+
+  .num::after {
+    content: attr(data-val);
+    position: absolute;
+    inset: 0;
+    color: var(--gold);
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .num.tick::after { animation: tickFlash 0.3s ease forwards; }
+
+  @keyframes tickFlash {
+    0%   { opacity: 0.6; }
+    100% { opacity: 0; }
+  }
+
+  .unit-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    color: var(--amber);
+    text-transform: uppercase;
+    margin-top: 10px;
+    opacity: 0.6;
+  }
+
+  .ornament-bottom {
+    margin-top: 48px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .target-date {
+    font-size: 14px;
+    font-style: italic;
+    color: var(--amber);
+    letter-spacing: 0.08em;
+    opacity: 0.65;
+  }
+
+  /* Seconds ring */
+  .seconds-ring {
+    position: fixed;
+    bottom: 36px;
+    right: 36px;
+    width: 54px;
+    height: 54px;
+    opacity: 0.5;
+  }
+  .seconds-ring svg {
+    transform: rotate(-90deg);
+    width: 100%;
+    height: 100%;
+  }
+  .ring-bg {
+    fill: none;
+    stroke: var(--gold);
+    stroke-width: 1.5;
+    opacity: 0.2;
+  }
+  .ring-fg {
+    fill: none;
+    stroke: var(--gold);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-dasharray: 138.23;
+    stroke-dashoffset: 138.23;
+    transition: stroke-dashoffset 1s linear;
+  }
+
+  /* Expired state */
+  .expired {
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 300;
+    color: var(--ink);
+    letter-spacing: 0.06em;
+  }
+  .expired em {
+    color: var(--gold);
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<div class="corner corner--tl">
+  <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 76 L4 4 L76 4" stroke="#c9a84c" stroke-width="1"/>
+    <path d="M4 54 L4 4 L54 4" stroke="#c9a84c" stroke-width="0.4" opacity="0.5"/>
+    <circle cx="4" cy="4" r="3" fill="none" stroke="#c9a84c" stroke-width="1"/>
+  </svg>
+</div>
+<div class="corner corner--tr">
+  <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 76 L4 4 L76 4" stroke="#c9a84c" stroke-width="1"/>
+    <path d="M4 54 L4 4 L54 4" stroke="#c9a84c" stroke-width="0.4" opacity="0.5"/>
+    <circle cx="4" cy="4" r="3" fill="none" stroke="#c9a84c" stroke-width="1"/>
+  </svg>
+</div>
+<div class="corner corner--bl">
+  <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 76 L4 4 L76 4" stroke="#c9a84c" stroke-width="1"/>
+    <path d="M4 54 L4 4 L54 4" stroke="#c9a84c" stroke-width="0.4" opacity="0.5"/>
+    <circle cx="4" cy="4" r="3" fill="none" stroke="#c9a84c" stroke-width="1"/>
+  </svg>
+</div>
+<div class="corner corner--br">
+  <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 76 L4 4 L76 4" stroke="#c9a84c" stroke-width="1"/>
+    <path d="M4 54 L4 4 L54 4" stroke="#c9a84c" stroke-width="0.4" opacity="0.5"/>
+    <circle cx="4" cy="4" r="3" fill="none" stroke="#c9a84c" stroke-width="1"/>
+  </svg>
+</div>
+
+<div class="seconds-ring">
+  <svg viewBox="0 0 48 48">
+    <circle class="ring-bg" cx="24" cy="24" r="22"/>
+    <circle class="ring-fg" id="ringFg" cx="24" cy="24" r="22"/>
+  </svg>
+</div>
+
+<div class="wrap" id="wrap">
+  <div class="label-top">geri sayım</div>
+  <div class="ornament">
+    <div class="ornament-line"></div>
+    <div class="ornament-diamond"></div>
+    <div class="ornament-line"></div>
+  </div>
+
+  <div class="units">
+    <div class="unit">
+      <div class="num" id="d">--</div>
+      <div class="unit-label">gün</div>
+    </div>
+    <div class="unit">
+      <div class="num" id="h">--</div>
+      <div class="unit-label">saat</div>
+    </div>
+    <div class="unit">
+      <div class="num" id="m">--</div>
+      <div class="unit-label">dakika</div>
+    </div>
+    <div class="unit">
+      <div class="num" id="s">--</div>
+      <div class="unit-label">saniye</div>
+    </div>
+  </div>
+
+  <div class="ornament-bottom">
+    <div class="ornament-line"></div>
+    <div class="ornament-diamond"></div>
+    <div class="ornament-line"></div>
+  </div>
+  <div class="target-date">27 Haziran 2026 · 13:50</div>
+</div>
+
+<script>
+  const target = new Date('2026-06-27T13:50:00+03:00');
+  const pad = n => String(n).padStart(2, '0');
+
+  const elD = document.getElementById('d');
+  const elH = document.getElementById('h');
+  const elM = document.getElementById('m');
+  const elS = document.getElementById('s');
+  const ringFg = document.getElementById('ringFg');
+  const circumference = 2 * Math.PI * 22; // ~138.23
+
+  function tick(el, val) {
+    const str = pad(val);
+    if (el.textContent !== str) {
+      el.textContent = str;
+      el.dataset.val = str;
+      el.classList.remove('tick');
+      void el.offsetWidth;
+      el.classList.add('tick');
+    }
+  }
+
+  function update() {
+    const now = new Date();
+    const diff = target - now;
+
+    if (diff <= 0) {
+      document.getElementById('wrap').innerHTML = `
+        <div class="label-top">zaman doldu</div>
+        <div class="ornament" style="margin-bottom:24px">
+          <div class="ornament-line"></div>
+          <div class="ornament-diamond"></div>
+          <div class="ornament-line"></div>
+        </div>
+        <div class="expired">Vakit <em>geldi.</em></div>
+      `;
+      return;
+    }
+
+    const totalSec = Math.floor(diff / 1000);
+    const days    = Math.floor(totalSec / 86400);
+    const hours   = Math.floor((totalSec % 86400) / 3600);
+    const minutes = Math.floor((totalSec % 3600) / 60);
+    const seconds = totalSec % 60;
+
+    tick(elD, days);
+    tick(elH, hours);
+    tick(elM, minutes);
+    tick(elS, seconds);
+
+    // seconds ring
+    const progress = seconds / 60;
+    const offset = circumference * (1 - progress);
+    ringFg.style.strokeDashoffset = offset;
+
+    setTimeout(update, 1000 - (Date.now() % 1000));
+  }
+
+  update();
+</script>
+</body>
+</html>
